@@ -10,24 +10,28 @@ slim = tf.contrib.slim
 
 IMAGES_DIR = 'JPEGImages/'
 ANNOTATIONS_DIR = 'Annotations/'
+VVG_DEFAULT_IMAGE_SIZE = 224
 
 
 def build(filepaths_from, filepath_to, split_name):
     dataset_file = filepath_to + FILE_PATTERN
 
-    # if not tf.gfile.Exists(filepath_to):
-    # _build_tfrecords(filepaths_from, dataset_file.format(split_name))
+    print(dataset_file.format(split_name))
+    if not tf.gfile.Exists(dataset_file.format(split_name)):
+        _build_tfrecords(filepaths_from, dataset_file.format(split_name))
 
     return get_split(filepath_to, split_name)
 
 
 def _build_tfrecords(filepaths_from, filepath_to):
+    bad_count = 0
 
     writer = tf.python_io.TFRecordWriter(filepath_to)
 
     for filepath in filepaths_from:
         images_dir = filepath + IMAGES_DIR
         annotations_dir = filepath + ANNOTATIONS_DIR
+        # print(images_dir)
         images = tf.gfile.ListDirectory(images_dir)
         annotations = tf.gfile.ListDirectory(annotations_dir)
 
@@ -35,16 +39,17 @@ def _build_tfrecords(filepaths_from, filepath_to):
             if not image_name[:-3] == annotation_name[:-3]:
                 raise ValueError('images and annotations are not aligned')
 
-            example = _convert_to_example(images_dir + image_name,
+            flag, example = _convert_to_example(images_dir + image_name,
                                           annotations_dir + annotation_name)
-
-            writer.write(example.SerializeToString())
-
+            if flag:
+                writer.write(example.SerializeToString())
+            else:
+                bad_count += 1
+    print('bad: {}'.format(bad_count))
     writer.close()
 
 
 def _convert_to_example(image_path, annotations_path):
-
     image_data = tf.gfile.FastGFile(image_path, 'rb').read()
     root = ET.parse(annotations_path).getroot()
 
@@ -53,37 +58,78 @@ def _convert_to_example(image_path, annotations_path):
              int(image_sizes.find('width').text),
              int(image_sizes.find('depth').text))
 
+    if shape[0] < VVG_DEFAULT_IMAGE_SIZE or shape[1] < VVG_DEFAULT_IMAGE_SIZE:
+        print('achtung')
+
+        return False, None
+
     labels = []
     xmins = []
     ymins = []
     xmaxs = []
     ymaxs = []
 
-    count = 0
-
     for obj in root.findall('object'):
-        count += 1
-        labels.append(VOC_LABELS[obj.find('name').text][0])
+
         bnd_box = obj.find('bndbox')
 
-        def get_norm_coor(name, scale):
-            return float(bnd_box.find(name).text) / scale
+        xmin = float(bnd_box.find('xmin').text)
+        ymin = float(bnd_box.find('ymin').text)
+        xmax = float(bnd_box.find('xmax').text)
+        ymax = float(bnd_box.find('ymax').text)
 
-        xmins.append(get_norm_coor(name='xmin', scale=shape[1]))
-        ymins.append(get_norm_coor(name='ymin', scale=shape[0]))
-        xmaxs.append(get_norm_coor(name='xmax', scale=shape[1]))
-        ymaxs.append(get_norm_coor(name='ymax', scale=shape[0]))
+        def validate_box(xmin, ymin, xmax, ymax):
+            if not xmax > xmin or not ymax > ymin:
 
-    while count < MAX_BOXES:
-        labels.append(0)
-        xmins.append(0)
-        ymins.append(0)
-        xmaxs.append(0)
-        ymaxs.append(0)
-        count += 1
+                return False
 
-    assert count == MAX_BOXES
+            area = (xmax - xmin) * (ymax - ymin)
+            assert area > 0.0
+            if area < 5000:
+                print('area: {}'.format(area))
+            return area > 5000
 
+        def process_coors(xmin, ymin, xmax, ymax, shape):
+            x_offset = (shape[1] - VVG_DEFAULT_IMAGE_SIZE) / 2
+            y_offset = (shape[0] - VVG_DEFAULT_IMAGE_SIZE) / 2
+
+            xmin -= x_offset
+            ymin -= y_offset
+            xmax -= x_offset
+            ymax -= y_offset
+
+            def restrict_coor(coor):
+                return max(min(coor, VVG_DEFAULT_IMAGE_SIZE), 0)
+
+            xmin = restrict_coor(xmin)
+            ymin = restrict_coor(ymin)
+            xmax = restrict_coor(xmax)
+            ymax = restrict_coor(ymax)
+
+            flag = validate_box(xmin, ymin, xmax, ymax)
+
+            return flag, xmin, ymin, xmax, ymax
+
+        label = int(VOC_LABELS[obj.find('name').text][0])
+
+        flag, xmin, ymin, xmax, ymax = process_coors(xmin, ymin, xmax, ymax, shape)
+        # print(xmin, ymin, xmax, ymax)
+
+        if not flag:
+            continue
+
+        labels.append(label)
+
+        xmins.append(xmin)
+        ymins.append(ymin)
+        xmaxs.append(xmax)
+        ymaxs.append(ymax)
+
+    if len(xmins) == 0:
+        print('waggghhhhh')
+        return False, None
+
+    count = 0
     image_format = b'JPEG'
 
     example = tf.train.Example(features=tf.train.Features(feature={
@@ -99,5 +145,5 @@ def _convert_to_example(image_path, annotations_path):
 
     }))
 
-    return example
+    return True, example
 

@@ -53,17 +53,17 @@ def get_split(dataset_dir, split_name):
         'format': tf.FixedLenFeature((), tf.string, default_value=''),
         'shape': tf.FixedLenFeature([3], tf.int64),
         'qty': tf.FixedLenFeature([1], tf.int64),
-        'bndbox/xmin': tf.FixedLenFeature([MAX_BOXES], dtype=tf.float32),
-        'bndbox/ymin': tf.FixedLenFeature([MAX_BOXES], dtype=tf.float32),
-        'bndbox/xmax': tf.FixedLenFeature([MAX_BOXES], dtype=tf.float32),
-        'bndbox/ymax': tf.FixedLenFeature([MAX_BOXES], dtype=tf.float32),
-        'bndbox/label': tf.FixedLenFeature([MAX_BOXES], dtype=tf.int64)
+        # 'bndbox/xmin': tf.FixedLenFeature([MAX_BOXES], dtype=tf.float32),
+        # 'bndbox/ymin': tf.FixedLenFeature([MAX_BOXES], dtype=tf.float32),
+        # 'bndbox/xmax': tf.FixedLenFeature([MAX_BOXES], dtype=tf.float32),
+        # 'bndbox/ymax': tf.FixedLenFeature([MAX_BOXES], dtype=tf.float32),
+        # 'bndbox/label': tf.FixedLenFeature([MAX_BOXES], dtype=tf.int64)
 
-        # 'bndbox/xmin': tf.VarLenFeature(dtype=tf.float32),
-        # 'bndbox/ymin': tf.VarLenFeature(dtype=tf.float32),
-        # 'bndbox/xmax': tf.VarLenFeature(dtype=tf.float32),
-        # 'bndbox/ymax': tf.VarLenFeature(dtype=tf.float32),
-        # 'bndbox/label': tf.VarLenFeature(dtype=tf.int64)
+        'bndbox/xmin': tf.VarLenFeature(dtype=tf.float32),
+        'bndbox/ymin': tf.VarLenFeature(dtype=tf.float32),
+        'bndbox/xmax': tf.VarLenFeature(dtype=tf.float32),
+        'bndbox/ymax': tf.VarLenFeature(dtype=tf.float32),
+        'bndbox/label': tf.VarLenFeature(dtype=tf.int64)
 
     }
 
