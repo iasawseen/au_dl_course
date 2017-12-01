@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 from music21 import stream, midi, tempo, note
 
-import lstm
+# import lstm
 from grammar import unparse_grammar
 from preprocess import get_musical_data, get_corpus_data
 
