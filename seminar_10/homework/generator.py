@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 from music21 import stream, midi, tempo, note
 
-import lstm
+# import lstm
 from grammar import unparse_grammar
 from preprocess import get_musical_data, get_corpus_data
 
@@ -53,6 +53,9 @@ def __sample(a, temperature=1.0):
 
 def __predict(model, x, indices_val, diversity):
     preds = model.predict(x, verbose=0)[0]
+#     print('preds shape')
+#     print(preds.shape)
+#     print(preds)
     next_index = __sample(preds, diversity)
     next_val = indices_val[next_index]
 
